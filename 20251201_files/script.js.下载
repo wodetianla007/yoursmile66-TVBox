@@ -1,0 +1,398 @@
+// 主脚本文件
+window.addEventListener('load', () => {
+    try {
+        // ========== 页面初始化 ==========
+        const loader = document.querySelector('.loader');
+        const linkContainer = document.querySelector('.link-container');
+        const relatedContainer = document.querySelector('.related-container');
+        const videoBg = document.querySelector('.video-bg');
+        
+        // 视频背景初始化 (仅PC端)
+        if (window.innerWidth >= 769) {
+            const video = document.createElement('video');
+            video.src = 'bgm-video.webm';
+            video.autoplay = true;
+            video.loop = true;
+            video.muted = true; // 确保视频静音
+            video.playsInline = true;
+            video.style.width = '100%';
+            video.style.height = '100%';
+            video.style.objectFit = 'cover';
+            
+            video.onloadeddata = () => {
+                // 清除备用背景，使用视频
+                videoBg.style.backgroundImage = 'none';
+                videoBg.appendChild(video);
+            };
+            
+            // 视频加载失败时的降级处理
+            video.onerror = () => {
+                videoBg.style.backgroundImage = "url('fallback-bg.jpg')";
+                videoBg.style.backgroundSize = "cover";
+                videoBg.style.backgroundPosition = "center";
+            };
+        } else {
+            // 移动端初始化背景轮播
+            initMobileBackgroundSlideshow();
+        }
+
+        // 导航切换
+        document.getElementById('home').addEventListener('click', () => {
+            linkContainer.style.display = 'none';
+            relatedContainer.style.display = 'none';
+        });
+
+        document.getElementById('tvbox').addEventListener('click', () => {
+            linkContainer.style.display = 'block';
+            relatedContainer.style.display = 'none';
+        });
+
+        document.querySelectorAll('.nav-item')[2].addEventListener('click', () => {
+            linkContainer.style.display = 'none';
+            relatedContainer.style.display = 'block';
+        });
+
+        // 链接复制功能
+        document.querySelectorAll('.link-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const url = item.querySelector('.link-url').innerText;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        alert('✅ 已成功复制:\n' + url);
+                    }).catch(err => {
+                        if (/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
+                            alert('移动端复制功能需要您手动长按链接复制，或在设置中开启相关权限');
+                        } else {
+                            alert('❌ 复制失败，请手动选择文本');
+                        }
+                    });
+                } else {
+                    alert('您的浏览器不支持自动复制，请手动选择文本');
+                }
+            });
+        });
+
+        // 图片错误处理
+        document.querySelectorAll('img').forEach(img => {
+            img.onerror = () => {
+                img.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MDAiIGhlaWdodD0iMzM4Ij48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmMGZjIi8+PHRleHQgeD0iNTAiIHk9IjE1MCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzZiNWI5NSI+5Zu+5qCH5byA5aeL5pyA5ZCO5LiA5Liq5pWwPC90ZXh0Pjwvc3ZnPg==';
+            };
+        });
+
+        // 加载动画
+        loader.style.opacity = '0';
+        setTimeout(() => loader.remove(), 500);
+
+        // ========== 移动端背景轮播逻辑 ==========
+        function initMobileBackgroundSlideshow() {
+            if (window.innerWidth >= 769) return; // 仅移动端
+            
+            const bgSlideshow = document.createElement('div');
+            bgSlideshow.className = 'mobile-bg-slideshow';
+            
+            // 轮播图片数组 - 使用更适合移动端的图片
+            const bgImages = [
+                'img/1.webp',
+                'img/2.webp', 
+                'img/3.webp',
+                'img/4.webp'
+            ];
+            
+            // 创建轮播项
+            bgImages.forEach((src, index) => {
+                const slide = document.createElement('div');
+                slide.className = `mobile-bg-slide ${index === 0 ? 'active' : ''}`;
+                slide.style.backgroundImage = `url('${src}')`;
+                
+                // 预加载图片并优化显示
+                const img = new Image();
+                img.src = src;
+                img.onload = function() {
+                    // 图片加载完成后优化背景显示
+                    optimizeBackgroundForMobile(slide, img.width, img.height);
+                };
+                
+                bgSlideshow.appendChild(slide);
+            });
+            
+            document.body.appendChild(bgSlideshow);
+            
+            // 轮播逻辑
+            let currentBgSlide = 0;
+            const bgSlides = document.querySelectorAll('.mobile-bg-slide');
+            
+            const showBgSlide = (n) => {
+                bgSlides[currentBgSlide].classList.remove('active');
+                currentBgSlide = (n + bgSlides.length) % bgSlides.length;
+                bgSlides[currentBgSlide].classList.add('active');
+            };
+            
+            // 每5秒切换一次背景
+            setInterval(() => showBgSlide(currentBgSlide + 1), 5000);
+            
+            // 窗口大小改变时重新优化背景
+            window.addEventListener('resize', () => {
+                bgSlides.forEach((slide, index) => {
+                    const img = new Image();
+                    img.src = bgImages[index];
+                    img.onload = function() {
+                        optimizeBackgroundForMobile(slide, img.width, img.height);
+                    };
+                });
+            });
+        }
+        
+        // 优化移动端背景显示
+        function optimizeBackgroundForMobile(slideElement, imgWidth, imgHeight) {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const screenRatio = screenWidth / screenHeight;
+            const imgRatio = imgWidth / imgHeight;
+            
+            // 根据屏幕和图片比例优化背景显示
+            if (imgRatio > screenRatio) {
+                // 图片比屏幕宽，优先保证高度覆盖
+                slideElement.style.backgroundSize = 'auto 100%';
+                slideElement.style.backgroundPosition = 'center center';
+            } else {
+                // 图片比屏幕高，优先保证宽度覆盖
+                slideElement.style.backgroundSize = '100% auto';
+                slideElement.style.backgroundPosition = 'center center';
+            }
+            
+            // 针对小屏设备进一步优化
+            if (screenWidth < 400) {
+                slideElement.style.backgroundSize = 'cover';
+                slideElement.style.filter = 'brightness(0.75)';
+            }
+        }
+
+        // ========== 音乐播放器核心逻辑 ==========
+        const tracks = [
+            { title: "君にまつわるミステリー", artist: "冰菓", src: "music/track1.mp3" },
+            { title: "Dehors", artist: "曾舜晞、Jordann", src: "music/track2.mp3" },
+            { title: "唯一", artist: "G.E.M.邓紫棋", src: "music/track3.mp3" },
+            { title: "The truth that you leave ", artist: "高至豪", src: "music/track4.mp3" },
+            { title: "只为你着迷", artist: "李秉成", src: "music/track5.mp3" },
+            { title: "天秤座 (古韵版) ", artist: "家卫老师", src: "music/track6.mp3" },
+            { title: "悬溺 ", artist: "葛东琪", src: "music/track7.mp3" },
+            { title: "白鸽乌鸦相爱的戏码", artist: "潘成（皮卡潘）", src: "music/track8.mp3" }
+        ];
+
+        // 全局变量
+        let currentTrack = 0;
+        let isPlaying = false;
+        let isUserInteracted = false;
+
+        // DOM元素
+        const audio = document.getElementById('bgm');
+        const playBtn = document.querySelector('.play-btn');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const trackInfo = document.querySelector('.track-info');
+        const playlist = document.getElementById('playlist');
+        const progressContainer = document.querySelector('.progress-container');
+        const progressBar = document.querySelector('.progress-bar');
+        const musicPlayer = document.querySelector('.music-player');
+        const mobilePlayBtn = document.querySelector('.mobile-play-btn');
+
+        // 初始化播放列表
+        function initPlaylist() {
+            tracks.forEach((track, index) => {
+                const trackElement = document.createElement('div');
+                trackElement.className = `track ${index === currentTrack ? 'active' : ''}`;
+                trackElement.textContent = `${track.title} - ${track.artist}`;
+                trackElement.addEventListener('click', () => {
+                    currentTrack = index;
+                    loadTrack(currentTrack);
+                    playTrack();
+                });
+                playlist.appendChild(trackElement);
+            });
+        }
+
+        // 加载曲目
+        function loadTrack(index) {
+            const track = tracks[index];
+            audio.src = track.src;
+            
+            document.querySelectorAll('.track').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
+            });
+            
+            trackInfo.textContent = `${track.title} - ${track.artist}`;
+            
+            // 预加载下一首
+            const nextIndex = (index + 1) % tracks.length;
+            const nextTrack = new Audio(tracks[nextIndex].src);
+            nextTrack.preload = 'metadata';
+        }
+
+        // 播放曲目
+        function playTrack() {
+            if (!audio || !trackInfo) return;
+            
+            // 关键修复：确保音频不静音
+            audio.muted = false;
+            
+            audio.play().then(() => {
+                isPlaying = true;
+                playBtn.textContent = '⏸';
+                trackInfo.textContent = `${tracks[currentTrack].title} - ${tracks[currentTrack].artist}`;
+            }).catch(error => {
+                console.log('播放失败:', error);
+                trackInfo.textContent = '点击播放按钮开始音乐';
+                isPlaying = false;
+                playBtn.textContent = '▶';
+            });
+        }
+
+        // 暂停曲目
+        function pauseTrack() {
+            audio.pause();
+            isPlaying = false;
+            playBtn.textContent = '▶';
+        }
+
+        // 上一首
+        function prevTrack() {
+            currentTrack = (currentTrack - 1 + tracks.length) % tracks.length;
+            loadTrack(currentTrack);
+            playTrack();
+        }
+
+        // 下一首
+        function nextTrack() {
+            currentTrack = (currentTrack + 1) % tracks.length;
+            loadTrack(currentTrack);
+            playTrack();
+        }
+
+        // 更新进度条
+        function updateProgress(e) {
+            const { duration, currentTime } = e.srcElement;
+            if (duration) {
+                const progressPercent = (currentTime / duration) * 100;
+                progressBar.style.width = `${progressPercent}%`;
+            }
+        }
+
+        // 进度条点击跳转
+        function setProgress(e) {
+            const width = this.clientWidth;
+            const clickX = e.offsetX;
+            const duration = audio.duration;
+            if (duration) {
+                audio.currentTime = (clickX / width) * duration;
+            }
+        }
+
+        // 自动播放处理 - 关键修复：PC端和移动端不同策略
+        function handleAutoPlay() {
+            // PC端：等待用户交互后再播放音乐
+            if (window.innerWidth >= 769) {
+                trackInfo.textContent = '点击播放按钮开始音乐';
+                musicPlayer.classList.add('active');
+                
+                const handleUserInteraction = () => {
+                    if (!isUserInteracted) {
+                        isUserInteracted = true;
+                        console.log('PC端检测到用户交互，准备播放音乐');
+                        if (!isPlaying) {
+                            playTrack();
+                        }
+                    }
+                    document.removeEventListener('click', handleUserInteraction);
+                    document.removeEventListener('touchstart', handleUserInteraction);
+                    document.removeEventListener('keydown', handleUserInteraction);
+                };
+
+                document.addEventListener('click', handleUserInteraction);
+                document.addEventListener('touchstart', handleUserInteraction);
+                document.addEventListener('keydown', handleUserInteraction);
+            } else {
+                // 移动端：尝试自动播放
+                audio.muted = false; // 确保移动端不静音
+                audio.play().then(() => {
+                    console.log('移动端自动播放成功');
+                    isPlaying = true;
+                    playBtn.textContent = '⏸';
+                    musicPlayer.classList.add('active');
+                }).catch(error => {
+                    console.log('移动端自动播放失败，等待用户交互:', error);
+                    trackInfo.textContent = '点击播放按钮开始音乐';
+                });
+
+                const handleUserInteraction = () => {
+                    if (!isUserInteracted) {
+                        isUserInteracted = true;
+                        console.log('移动端检测到用户交互，尝试播放音乐');
+                        if (!isPlaying) {
+                            playTrack();
+                        }
+                    }
+                    document.removeEventListener('click', handleUserInteraction);
+                    document.removeEventListener('touchstart', handleUserInteraction);
+                    document.removeEventListener('keydown', handleUserInteraction);
+                };
+
+                document.addEventListener('click', handleUserInteraction);
+                document.addEventListener('touchstart', handleUserInteraction);
+                document.addEventListener('keydown', handleUserInteraction);
+            }
+        }
+
+        // 事件监听
+        playBtn.addEventListener('click', () => {
+            isUserInteracted = true;
+            if (isPlaying) {
+                pauseTrack();
+            } else {
+                playTrack();
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            isUserInteracted = true;
+            prevTrack();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            isUserInteracted = true;
+            nextTrack();
+        });
+
+        audio.addEventListener('timeupdate', updateProgress);
+        progressContainer.addEventListener('click', setProgress);
+        audio.addEventListener('ended', nextTrack);
+
+        // 移动端播放器切换
+        mobilePlayBtn.addEventListener('click', () => {
+            isUserInteracted = true;
+            musicPlayer.classList.toggle('active');
+            
+            if (musicPlayer.classList.contains('active') && !isPlaying) {
+                playTrack();
+            }
+        });
+
+        // 点击外部关闭播放器
+        document.addEventListener('click', (e) => {
+            if (!musicPlayer.contains(e.target) && 
+                !mobilePlayBtn.contains(e.target) && 
+                musicPlayer.classList.contains('active')) {
+                musicPlayer.classList.remove('active');
+            }
+        });
+
+        // 初始化播放器
+        initPlaylist();
+        loadTrack(currentTrack);
+        handleAutoPlay();
+
+    } catch (error) {
+        console.error('初始化错误:', error);
+        document.querySelector('.loader')?.remove();
+    }
+});
